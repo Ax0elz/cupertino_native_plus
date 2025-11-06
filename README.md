@@ -8,6 +8,9 @@ Does it work and is it fast? Yes. Is it a vibe-coded Frankenstein's monster patc
 
 This package is a proof of concept for bringing Liquid Glass to Flutter. Contributions are most welcome. What we have here can serve as a great starting point for building a complete, polished library. The vision for this package is to bridge the gap until we have a good, new Cupertino library written entirely in Flutter. To move toward completeness, we can also improve parts that are easy to write in Flutter to match the new Liquid Glass style (e.g., improved `CupertinoScaffold`, theme, etc.).
 
+## About This Package
+
+This package (`cupertino_native_plus`) is based on the original [`cupertino_native`](https://github.com/serverpod/cupertino_native) package. It was created as a fork to provide continued development and support, as the original package's maintainer does not accept contributions and has stopped actively supporting the library. This package aims to maintain compatibility while providing ongoing improvements and bug fixes.
 
 ## Installation
 
