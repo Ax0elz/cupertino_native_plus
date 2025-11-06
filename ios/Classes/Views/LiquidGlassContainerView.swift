@@ -19,6 +19,7 @@ class LiquidGlassContainerPlatformView: NSObject, FlutterPlatformView {
     var cornerRadius: CGFloat? = nil
     var tint: UIColor? = nil
     var interactive: Bool = false
+    var isDark: Bool = false
     
     if let dict = args as? [String: Any] {
       if let effectStr = dict["effect"] as? String {
@@ -41,6 +42,9 @@ class LiquidGlassContainerPlatformView: NSObject, FlutterPlatformView {
       if let interactiveBool = dict["interactive"] as? Bool {
         interactive = interactiveBool
       }
+      if let isDarkBool = dict["isDark"] as? Bool {
+        isDark = isDarkBool
+      }
     }
     
     // Create SwiftUI view
@@ -54,6 +58,7 @@ class LiquidGlassContainerPlatformView: NSObject, FlutterPlatformView {
     
     self.hostingController = UIHostingController(rootView: glassView)
     self.hostingController.view.backgroundColor = .clear
+    self.hostingController.overrideUserInterfaceStyle = isDark ? .dark : .light
     
     super.init()
     
@@ -86,6 +91,7 @@ class LiquidGlassContainerPlatformView: NSObject, FlutterPlatformView {
     var cornerRadius: CGFloat? = nil
     var tint: UIColor? = nil
     var interactive: Bool = false
+    var isDark: Bool = false
     
     if let effectStr = dict["effect"] as? String {
       effect = effectStr
@@ -107,6 +113,9 @@ class LiquidGlassContainerPlatformView: NSObject, FlutterPlatformView {
     if let interactiveBool = dict["interactive"] as? Bool {
       interactive = interactiveBool
     }
+    if let isDarkBool = dict["isDark"] as? Bool {
+      isDark = isDarkBool
+    }
     
     // Update the SwiftUI view
     let newGlassView = LiquidGlassContainerSwiftUI(
@@ -118,6 +127,7 @@ class LiquidGlassContainerPlatformView: NSObject, FlutterPlatformView {
     )
     
     hostingController.rootView = newGlassView
+    hostingController.overrideUserInterfaceStyle = isDark ? .dark : .light
   }
   
   func view() -> UIView {
@@ -127,6 +137,8 @@ class LiquidGlassContainerPlatformView: NSObject, FlutterPlatformView {
 
 @available(iOS 26.0, *)
 struct LiquidGlassContainerSwiftUI: View {
+  @Environment(\.colorScheme) var colorScheme
+  
   let effect: String
   let shape: String
   let cornerRadius: CGFloat?

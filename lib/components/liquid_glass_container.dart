@@ -82,6 +82,7 @@ class _LiquidGlassContainerState extends State<LiquidGlassContainer> {
       if (widget.config.tint != null)
         'tint': resolveColorToArgb(widget.config.tint!, context),
       'interactive': widget.config.interactive,
+      'isDark': _isDark,
     };
 
     final platformView = defaultTargetPlatform == TargetPlatform.iOS
@@ -144,6 +145,7 @@ class _LiquidGlassContainerState extends State<LiquidGlassContainer> {
         if (widget.config.tint != null)
           'tint': resolveColorToArgb(widget.config.tint!, context),
         'interactive': widget.config.interactive,
+        'isDark': _isDark,
       });
     } catch (e) {
       // Ignore errors - view might not be ready yet
