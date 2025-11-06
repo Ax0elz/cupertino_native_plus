@@ -46,6 +46,13 @@ This ensures proper version detection for conditional Liquid Glass feature avail
 
 This package ships a handful of native Liquid Glass widgets. Each widget exposes a simple, Flutter‑friendly API and falls back to a reasonable Flutter implementation on non‑Apple platforms.
 
+**Icon Support:** All components that display icons support three types with a unified priority system:
+- **SVG Assets** (highest priority) - Custom SVG icons from your app's assets
+- **Custom Icons** (medium priority) - Flutter `IconData` (CupertinoIcons, Material Icons, etc.)
+- **SF Symbols** (lowest priority) - Native Apple SF Symbols
+
+When multiple icon types are provided, the component uses the highest priority one available.
+
 ### Slider
 
 ![Liquid Glass Slider](https://github.com/NarekManukyan/cupertino_native_plus/raw/main/misc/screenshots/slider.png)
@@ -98,9 +105,21 @@ CNButton(
   onPressed: () {},
 )
 
-// Icon button variant
+// Icon button with SF Symbol
 CNButton.icon(
   icon: const CNSymbol('heart.fill'),
+  onPressed: () {},
+)
+
+// Icon button with custom icon (IconData)
+CNButton.icon(
+  customIcon: CupertinoIcons.heart_fill,
+  onPressed: () {},
+)
+
+// Icon button with SVG asset
+CNButton.icon(
+  imageAsset: const CNImageAsset('assets/icons/heart.svg', size: 18),
   onPressed: () {},
 )
 
@@ -131,18 +150,40 @@ CNButton(
 - Supports SVG assets, custom icons (IconData), and SF Symbols with unified priority system
 - Liquid Glass effects with union IDs, effect IDs, and interactive effects (iOS 26+ and macOS 26+)
 
-### Icon (SF Symbols)
+### Icon
 
 ![Liquid Glass Icon](https://github.com/NarekManukyan/cupertino_native_plus/raw/main/misc/screenshots/icon.png)
 
+The `CNIcon` widget supports three types of icons with a unified priority system: **SVG Assets** > **Custom Icons** > **SF Symbols**.
+
 ```dart
-// Monochrome symbol
+// SF Symbol (default)
 const CNIcon(symbol: CNSymbol('star'));
 
-// Multicolor / hierarchical options are also supported
+// SF Symbol with multicolor / hierarchical rendering
 const CNIcon(
   symbol: CNSymbol('paintpalette.fill'),
   mode: CNSymbolRenderingMode.multicolor,
+)
+
+// Custom icon from IconData (CupertinoIcons, Material Icons, etc.)
+const CNIcon(
+  customIcon: CupertinoIcons.home,
+  size: 24,
+)
+
+// SVG asset from your app's assets
+const CNIcon(
+  imageAsset: CNImageAsset('assets/icons/home.svg', size: 24),
+)
+
+// SVG with custom color
+const CNIcon(
+  imageAsset: CNImageAsset(
+    'assets/icons/search.svg', 
+    size: 32,
+    color: CupertinoColors.systemBlue,
+  ),
 )
 ```
 
@@ -150,7 +191,10 @@ const CNIcon(
 
 ![Liquid Glass Popup Menu Button](https://github.com/NarekManukyan/cupertino_native_plus/raw/main/misc/screenshots/popup-menu-button.png)
 
+Popup menu buttons support all icon types (SVG assets, custom icons, and SF Symbols):
+
 ```dart
+// Using SF Symbols
 final items = [
   const CNPopupMenuItem(label: 'New File', icon: CNSymbol('doc', size: 18)),
   const CNPopupMenuItem(label: 'New Folder', icon: CNSymbol('folder', size: 18)),
@@ -165,21 +209,82 @@ CNPopupMenuButton(
     // Handle selection
   },
 )
+
+// Using custom icons (IconData)
+final itemsWithCustomIcons = [
+  const CNPopupMenuItem(label: 'Home', customIcon: CupertinoIcons.home),
+  const CNPopupMenuItem(label: 'Settings', customIcon: CupertinoIcons.settings),
+];
+
+// Using SVG assets
+final itemsWithSVG = [
+  const CNPopupMenuItem(
+    label: 'Home',
+    imageAsset: CNImageAsset('assets/icons/home.svg', size: 18),
+  ),
+  const CNPopupMenuItem(
+    label: 'Search',
+    imageAsset: CNImageAsset('assets/icons/search.svg', size: 18),
+  ),
+];
+
+// Icon-only popup menu button
+CNPopupMenuButton.icon(
+  buttonImageAsset: const CNImageAsset('assets/icons/menu.svg', size: 18),
+  items: items,
+  onSelected: (index) {},
+)
 ```
 
 ### Tab Bar
 
 ![Liquid Glass Tab Bar](https://github.com/NarekManukyan/cupertino_native_plus/raw/main/misc/screenshots/tab-bar.png)
 
+Tab bars support all icon types (SVG assets, custom icons, and SF Symbols):
+
 ```dart
 int _tabIndex = 0;
 
-// Overlay this at the bottom of your page
+// Using SF Symbols
 CNTabBar(
   items: const [
     CNTabBarItem(label: 'Home', icon: CNSymbol('house.fill')),
     CNTabBarItem(label: 'Profile', icon: CNSymbol('person.crop.circle')),
     CNTabBarItem(label: 'Settings', icon: CNSymbol('gearshape.fill')),
+  ],
+  currentIndex: _tabIndex,
+  onTap: (i) => setState(() => _tabIndex = i),
+)
+
+// Using custom icons (IconData)
+CNTabBar(
+  items: const [
+    CNTabBarItem(
+      label: 'Home',
+      customIcon: CupertinoIcons.home,
+      activeCustomIcon: CupertinoIcons.home_fill,
+    ),
+    CNTabBarItem(
+      label: 'Profile',
+      customIcon: CupertinoIcons.person,
+    ),
+  ],
+  currentIndex: _tabIndex,
+  onTap: (i) => setState(() => _tabIndex = i),
+)
+
+// Using SVG assets
+CNTabBar(
+  items: const [
+    CNTabBarItem(
+      label: 'Home',
+      imageAsset: CNImageAsset('assets/icons/home.svg'),
+      activeImageAsset: CNImageAsset('assets/icons/home-filled.svg'),
+    ),
+    CNTabBarItem(
+      label: 'Search',
+      imageAsset: CNImageAsset('assets/icons/search.svg'),
+    ),
   ],
   currentIndex: _tabIndex,
   onTap: (i) => setState(() => _tabIndex = i),
