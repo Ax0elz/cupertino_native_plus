@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
@@ -85,22 +84,18 @@ class _LiquidGlassContainerState extends State<LiquidGlassContainer> {
       'isDark': _isDark,
     };
 
-    print('LiquidGlassContainer Flutter - creating with isDark: $_isDark');
-
     final platformView = defaultTargetPlatform == TargetPlatform.iOS
         ? UiKitView(
             viewType: viewType,
             creationParams: creationParams,
             creationParamsCodec: const StandardMessageCodec(),
             onPlatformViewCreated: _onCreated,
-            gestureRecognizers: const <Factory<OneSequenceGestureRecognizer>>{},
           )
         : AppKitView(
             viewType: viewType,
             creationParams: creationParams,
             creationParamsCodec: const StandardMessageCodec(),
             onPlatformViewCreated: _onCreated,
-            gestureRecognizers: const <Factory<OneSequenceGestureRecognizer>>{},
           );
 
     // Use a Stack where the child determines the size
