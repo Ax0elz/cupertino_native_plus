@@ -1,14 +1,14 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 
 import '../channel/params.dart';
-import '../style/sf_symbol.dart';
 import '../style/button_style.dart';
+import '../style/sf_symbol.dart';
 import '../utils/icon_renderer.dart';
-import '../utils/version_detector.dart';
 import '../utils/theme_helper.dart';
+import '../utils/version_detector.dart';
 
 /// Base type for entries in a [CNPopupMenuButton] menu.
 abstract class CNPopupMenuEntry {
@@ -105,6 +105,7 @@ class CNPopupMenuButton extends StatefulWidget {
   /// Optional custom icon from CupertinoIcons, Icons, or any IconData for the button.
   /// If provided, this takes precedence over [buttonIcon] but not [buttonImageAsset].
   final IconData? buttonCustomIcon;
+
   /// Optional image asset (SVG, PNG, etc.) for the button icon.
   /// If provided, this takes precedence over [buttonIcon] and [buttonCustomIcon].
   final CNImageAsset? buttonImageAsset;
@@ -177,9 +178,11 @@ class _CNPopupMenuButtonState extends State<CNPopupMenuButton> {
   @override
   Widget build(BuildContext context) {
     // Check if we should use native platform view
-    final isIOSOrMacOS = defaultTargetPlatform == TargetPlatform.iOS ||
+    final isIOSOrMacOS =
+        defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS;
-    final shouldUseNative = isIOSOrMacOS && PlatformVersion.shouldUseNativeGlass;
+    final shouldUseNative =
+        isIOSOrMacOS && PlatformVersion.shouldUseNativeGlass;
 
     // Fallback to Flutter widgets for non-iOS/macOS or iOS/macOS < 26
     if (!shouldUseNative) {
@@ -188,14 +191,21 @@ class _CNPopupMenuButtonState extends State<CNPopupMenuButton> {
     }
 
     // Priority: imageAsset > customIcon > icon
-    
+
     // Check if we need to render custom icons or image assets
     final hasCustomButtonIcon = widget.buttonCustomIcon != null;
     final hasButtonImageAsset = widget.buttonImageAsset != null;
-    final hasCustomMenuIcons = widget.items.any((e) => e is CNPopupMenuItem && e.customIcon != null);
-    final hasMenuImageAssets = widget.items.any((e) => e is CNPopupMenuItem && e.imageAsset != null);
-    
-    if (hasCustomButtonIcon || hasCustomMenuIcons || hasButtonImageAsset || hasMenuImageAssets) {
+    final hasCustomMenuIcons = widget.items.any(
+      (e) => e is CNPopupMenuItem && e.customIcon != null,
+    );
+    final hasMenuImageAssets = widget.items.any(
+      (e) => e is CNPopupMenuItem && e.imageAsset != null,
+    );
+
+    if (hasCustomButtonIcon ||
+        hasCustomMenuIcons ||
+        hasButtonImageAsset ||
+        hasMenuImageAssets) {
       return FutureBuilder<Map<String, dynamic>>(
         future: _renderCustomIcons(context),
         builder: (context, snapshot) {
@@ -206,14 +216,14 @@ class _CNPopupMenuButtonState extends State<CNPopupMenuButton> {
         },
       );
     }
-    
+
     return _buildNativePopupMenu(context, customIconData: null);
   }
 
   Future<Map<String, dynamic>> _renderCustomIcons(BuildContext context) async {
     Uint8List? buttonIconBytes;
     final menuIconBytes = <Uint8List?>[];
-    
+
     // Handle button icon - imageAsset takes precedence over customIcon
     if (widget.buttonImageAsset != null) {
       // ImageAsset doesn't need async rendering, it's already data
@@ -224,7 +234,7 @@ class _CNPopupMenuButtonState extends State<CNPopupMenuButton> {
         size: widget.buttonIcon?.size ?? 20.0,
       );
     }
-    
+
     // Handle menu item icons - imageAsset takes precedence over customIcon
     for (final e in widget.items) {
       if (e is CNPopupMenuDivider) {
@@ -244,18 +254,19 @@ class _CNPopupMenuButtonState extends State<CNPopupMenuButton> {
         }
       }
     }
-    
-    return {
-      'buttonIconBytes': buttonIconBytes,
-      'menuIconBytes': menuIconBytes,
-    };
+
+    return {'buttonIconBytes': buttonIconBytes, 'menuIconBytes': menuIconBytes};
   }
 
-  Widget _buildNativePopupMenu(BuildContext context, {Map<String, dynamic>? customIconData}) {
+  Widget _buildNativePopupMenu(
+    BuildContext context, {
+    Map<String, dynamic>? customIconData,
+  }) {
     const viewType = 'CupertinoNativePopupMenuButton';
 
     final buttonIconBytes = customIconData?['buttonIconBytes'] as Uint8List?;
-    final menuIconBytes = customIconData?['menuIconBytes'] as List<Uint8List?>? ?? [];
+    final menuIconBytes =
+        customIconData?['menuIconBytes'] as List<Uint8List?>? ?? [];
 
     // Flatten entries into parallel arrays for the platform view.
     final labels = <String>[];
@@ -272,7 +283,7 @@ class _CNPopupMenuButtonState extends State<CNPopupMenuButton> {
     final modes = <String?>[];
     final palettes = <List<int?>?>[];
     final gradients = <bool?>[];
-    
+
     var menuIconIndex = 0;
     for (final e in widget.items) {
       if (e is CNPopupMenuDivider) {
@@ -294,9 +305,13 @@ class _CNPopupMenuButtonState extends State<CNPopupMenuButton> {
       } else if (e is CNPopupMenuItem) {
         labels.add(e.label);
         symbols.add(e.icon?.name ?? '');
-        customIconBytesArray.add(menuIconIndex < menuIconBytes.length ? menuIconBytes[menuIconIndex] : null);
+        customIconBytesArray.add(
+          menuIconIndex < menuIconBytes.length
+              ? menuIconBytes[menuIconIndex]
+              : null,
+        );
         customIconColors.add(resolveColorToArgb(e.iconColor, context));
-        
+
         // Handle imageAsset for menu items
         if (e.imageAsset != null) {
           imageAssetPaths.add(e.imageAsset!.assetPath);
@@ -307,11 +322,13 @@ class _CNPopupMenuButtonState extends State<CNPopupMenuButton> {
           imageAssetData.add(null);
           imageAssetFormats.add('');
         }
-        
+
         isDivider.add(false);
         enabled.add(e.enabled);
         sizes.add(e.imageAsset?.size ?? e.icon?.size);
-        colors.add(resolveColorToArgb(e.imageAsset?.color ?? e.icon?.color, context));
+        colors.add(
+          resolveColorToArgb(e.imageAsset?.color ?? e.icon?.color, context),
+        );
         modes.add(e.imageAsset?.mode?.name ?? e.icon?.mode?.name);
         palettes.add(
           e.icon?.paletteColors
@@ -325,16 +342,20 @@ class _CNPopupMenuButtonState extends State<CNPopupMenuButton> {
 
     final creationParams = <String, dynamic>{
       if (widget.buttonLabel != null) 'buttonTitle': widget.buttonLabel,
-      if (buttonIconBytes != null)
-        'buttonCustomIconBytes': buttonIconBytes,
+      if (buttonIconBytes != null) 'buttonCustomIconBytes': buttonIconBytes,
       if (widget.buttonImageAsset != null) ...{
-        if (widget.buttonImageAsset!.assetPath.isNotEmpty) 'buttonAssetPath': widget.buttonImageAsset!.assetPath,
-        if (widget.buttonImageAsset!.imageData != null) 'buttonImageData': widget.buttonImageAsset!.imageData,
-        if (widget.buttonImageAsset!.imageFormat != null) 'buttonImageFormat': widget.buttonImageAsset!.imageFormat,
+        if (widget.buttonImageAsset!.assetPath.isNotEmpty)
+          'buttonAssetPath': widget.buttonImageAsset!.assetPath,
+        if (widget.buttonImageAsset!.imageData != null)
+          'buttonImageData': widget.buttonImageAsset!.imageData,
+        if (widget.buttonImageAsset!.imageFormat != null)
+          'buttonImageFormat': widget.buttonImageAsset!.imageFormat,
       },
       if (widget.buttonIcon != null) 'buttonIconName': widget.buttonIcon!.name,
-      'buttonIconSize': widget.buttonImageAsset?.size ?? widget.buttonIcon?.size ?? 20.0,
-      if (widget.buttonImageAsset?.color != null || widget.buttonIcon?.color != null)
+      'buttonIconSize':
+          widget.buttonImageAsset?.size ?? widget.buttonIcon?.size ?? 20.0,
+      if (widget.buttonImageAsset?.color != null ||
+          widget.buttonIcon?.color != null)
         'buttonIconColor': resolveColorToArgb(
           widget.buttonImageAsset?.color ?? widget.buttonIcon!.color,
           context,
@@ -506,7 +527,9 @@ class _CNPopupMenuButtonState extends State<CNPopupMenuButton> {
         updIsDivider.add(false);
         updEnabled.add(e.enabled);
         updSizes.add(e.imageAsset?.size ?? e.icon?.size);
-        updColors.add(resolveColorToArgb(e.imageAsset?.color ?? e.icon?.color, context));
+        updColors.add(
+          resolveColorToArgb(e.imageAsset?.color ?? e.icon?.color, context),
+        );
         updModes.add(e.imageAsset?.mode?.name ?? e.icon?.mode?.name);
         updPalettes.add(
           e.icon?.paletteColors
@@ -514,7 +537,7 @@ class _CNPopupMenuButtonState extends State<CNPopupMenuButton> {
               .toList(),
         );
         updGradients.add(e.imageAsset?.gradient ?? e.icon?.gradient);
-        
+
         // Handle imageAsset for menu items
         if (e.imageAsset != null) {
           updImageAssetPaths.add(e.imageAsset!.assetPath);
@@ -553,7 +576,7 @@ class _CNPopupMenuButtonState extends State<CNPopupMenuButton> {
       final iconSize = preIconSize;
       final iconColor = preIconColor;
       final updates = <String, dynamic>{};
-      
+
       // Handle button imageAsset (takes precedence over SF Symbol)
       if (widget.buttonImageAsset != null) {
         updates['buttonAssetPath'] = widget.buttonImageAsset!.assetPath;
@@ -561,13 +584,20 @@ class _CNPopupMenuButtonState extends State<CNPopupMenuButton> {
         updates['buttonImageFormat'] = widget.buttonImageAsset!.imageFormat;
         updates['buttonIconSize'] = widget.buttonImageAsset!.size;
         if (widget.buttonImageAsset!.color != null) {
-          updates['buttonIconColor'] = resolveColorToArgb(widget.buttonImageAsset!.color, context);
+          if (mounted) {
+            updates['buttonIconColor'] = resolveColorToArgb(
+              widget.buttonImageAsset!.color,
+              context,
+            );
+          }
         }
         if (widget.buttonImageAsset!.mode != null) {
-          updates['buttonIconRenderingMode'] = widget.buttonImageAsset!.mode!.name;
+          updates['buttonIconRenderingMode'] =
+              widget.buttonImageAsset!.mode!.name;
         }
         if (widget.buttonImageAsset!.gradient != null) {
-          updates['buttonIconGradientEnabled'] = widget.buttonImageAsset!.gradient;
+          updates['buttonIconGradientEnabled'] =
+              widget.buttonImageAsset!.gradient;
         }
       } else {
         // Fallback to SF Symbol
@@ -595,7 +625,7 @@ class _CNPopupMenuButtonState extends State<CNPopupMenuButton> {
           updates['buttonIconGradientEnabled'] = widget.buttonIcon!.gradient;
         }
       }
-      
+
       if (updates.isNotEmpty) {
         await ch.invokeMethod('setButtonIcon', updates);
       }
@@ -667,9 +697,7 @@ class _CNPopupMenuButtonState extends State<CNPopupMenuButton> {
                     if (widget.items[i] is CNPopupMenuItem)
                       CupertinoActionSheetAction(
                         onPressed: () => Navigator.of(ctx).pop(i),
-                        child: Text(
-                          (widget.items[i] as CNPopupMenuItem).label,
-                        ),
+                        child: Text((widget.items[i] as CNPopupMenuItem).label),
                       )
                     else
                       const SizedBox(height: 8),
