@@ -150,7 +150,7 @@ struct LiquidGlassContainerSwiftUI: View {
       shapeForConfig()
         .fill(Color.clear)
         .contentShape(shapeForConfig())
-        .allowsHitTesting(interactive)
+        .allowsHitTesting(false)  // Always false - let Flutter handle gestures
         .glassEffect(glassEffectForConfig(), in: shapeForConfig())
         .frame(width: geometry.size.width, height: geometry.size.height)
     }

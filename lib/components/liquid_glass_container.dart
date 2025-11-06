@@ -85,6 +85,8 @@ class _LiquidGlassContainerState extends State<LiquidGlassContainer> {
       'isDark': _isDark,
     };
 
+    print('LiquidGlassContainer Flutter - creating with isDark: $_isDark');
+
     final platformView = defaultTargetPlatform == TargetPlatform.iOS
         ? UiKitView(
             viewType: viewType,
@@ -114,7 +116,8 @@ class _LiquidGlassContainerState extends State<LiquidGlassContainer> {
         fit: StackFit.passthrough,
         children: [
           // Glass effect background from native view - sized to match child
-          Positioned.fill(child: platformView),
+          // Wrap in IgnorePointer so the platform view never intercepts touches
+          Positioned.fill(child: IgnorePointer(child: platformView)),
           // Child content rendered on top - determines the size
           // This will size the Stack, and Positioned.fill will match it
           widget.child,
