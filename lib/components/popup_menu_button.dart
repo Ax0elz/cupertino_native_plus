@@ -199,7 +199,16 @@ class _CNPopupMenuButtonState extends State<CNPopupMenuButton> {
     final hasMenuImageAssets = widget.items.any((e) => e is CNPopupMenuItem && e.imageAsset != null);
     
     if (hasCustomButtonIcon || hasCustomMenuIcons || hasButtonImageAsset || hasMenuImageAssets) {
+      // Create a key that changes when button or menu icons change
+      final buttonIconKey = '${widget.buttonImageAsset?.assetPath}_${widget.buttonImageAsset?.imageData?.length ?? 0}_${widget.buttonCustomIcon?.hashCode ?? 0}';
+      final menuIconsKey = widget.items.map((e) {
+        if (e is CNPopupMenuItem) {
+          return '${e.imageAsset?.assetPath}_${e.imageAsset?.imageData?.length ?? 0}_${e.customIcon?.hashCode ?? 0}';
+        }
+        return '';
+      }).join('|');
       return FutureBuilder<Map<String, dynamic>>(
+        key: ValueKey('popupMenu_icons_$buttonIconKey|$menuIconsKey'),
         future: _renderCustomIcons(context),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
@@ -399,8 +408,28 @@ class _CNPopupMenuButtonState extends State<CNPopupMenuButton> {
         'buttonIconGradientEnabled': widget.buttonIcon!.gradient,
     };
 
+    // Create a comprehensive key that includes all parameters affecting platform view creation
+    final buttonIconKey = '${widget.buttonLabel}_${widget.buttonIcon?.name}_${widget.buttonImageAsset?.assetPath}_${widget.buttonImageAsset?.imageData?.length ?? 0}_${widget.buttonCustomIcon?.hashCode ?? 0}';
+    final itemsKey = widget.items.map((e) {
+      if (e is CNPopupMenuItem) {
+        return '${e.label}_${e.icon?.name}_${e.imageAsset?.assetPath}_${e.imageAsset?.imageData?.length ?? 0}_${e.customIcon?.hashCode ?? 0}';
+      }
+      return 'divider';
+    }).join('|');
+    final viewKey = ValueKey(
+      'popupMenu_'
+      '$buttonIconKey|'
+      '$itemsKey|'
+      '${widget.buttonStyle.name}_'
+      '${widget.height}_'
+      '${widget.width}_'
+      '${widget.tint?.value}_'
+      '${_isDark}'
+    );
+
     final platformView = defaultTargetPlatform == TargetPlatform.iOS
         ? UiKitView(
+            key: viewKey,
             viewType: viewType,
             creationParams: creationParams,
             creationParamsCodec: const StandardMessageCodec(),
@@ -410,6 +439,7 @@ class _CNPopupMenuButtonState extends State<CNPopupMenuButton> {
             },
           )
         : AppKitView(
+            key: viewKey,
             viewType: viewType,
             creationParams: creationParams,
             creationParamsCodec: const StandardMessageCodec(),

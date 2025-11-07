@@ -174,6 +174,9 @@ class _CNButtonState extends State<CNButton> {
   CNImagePlacement? _lastImagePlacement;
   double? _lastImagePadding;
   EdgeInsets? _lastPadding;
+  String? _lastImageAssetPath;
+  Uint8List? _lastImageAssetData;
+  IconData? _lastCustomIcon;
   Offset? _downPosition;
   bool _pressed = false;
 
@@ -265,11 +268,6 @@ class _CNButtonState extends State<CNButton> {
 
   Widget _buildNativeButton(BuildContext context, {Uint8List? customIconBytes, CNImageAsset? imageAsset}) {
     const viewType = 'CupertinoNativeButton';
-    
-    // Create a key that changes when size-affecting parameters change
-    // This forces a full platform view rebuild when these parameters change
-    final iconSizeForKey = widget.icon?.size ?? widget.imageAsset?.size ?? (widget.customIcon != null ? (widget.icon?.size ?? 20.0) : null);
-    final viewKey = ValueKey('${widget.label}_${widget.config.imagePlacement.name}_${widget.config.imagePadding}_${widget.config.padding}_${widget.imageAsset?.assetPath}_${widget.customIcon != null}_${widget.icon?.name}_$iconSizeForKey');
 
     // Determine which source to use and build parameters accordingly
     String iconName = '';
@@ -381,7 +379,6 @@ class _CNButtonState extends State<CNButton> {
 
     final platformView = defaultTargetPlatform == TargetPlatform.iOS
         ? UiKitView(
-            key: viewKey,
             viewType: viewType,
             creationParams: creationParams,
             creationParamsCodec: const StandardMessageCodec(),
@@ -392,7 +389,6 @@ class _CNButtonState extends State<CNButton> {
             },
           )
         : AppKitView(
-            key: viewKey,
             viewType: viewType,
             creationParams: creationParams,
             creationParamsCodec: const StandardMessageCodec(),
@@ -494,6 +490,9 @@ class _CNButtonState extends State<CNButton> {
     _lastImagePlacement = widget.config.imagePlacement;
     _lastImagePadding = widget.config.imagePadding;
     _lastPadding = widget.config.padding;
+    _lastImageAssetPath = widget.imageAsset?.assetPath;
+    _lastImageAssetData = widget.imageAsset?.imageData;
+    _lastCustomIcon = widget.customIcon;
     // Always request intrinsic size to get both width and height
     // Use a small delay to ensure native view has finished layout
     Future.delayed(const Duration(milliseconds: 10), () {
@@ -591,8 +590,22 @@ class _CNButtonState extends State<CNButton> {
       final iconColor = preIconColor;
       final updates = <String, dynamic>{};
       
+      // Check if imageAsset path or data changed
+      final imageAssetPathChanged = _lastImageAssetPath != widget.imageAsset?.assetPath;
+      final imageAssetDataChanged = _lastImageAssetData != widget.imageAsset?.imageData;
+      final customIconChanged = _lastCustomIcon != widget.customIcon;
+      
+      // Check if we switched from one icon type to another
+      final hadImageAsset = _lastImageAssetPath != null;
+      final hasImageAsset = widget.imageAsset != null;
+      final hadCustomIcon = _lastCustomIcon != null;
+      final hasCustomIcon = widget.customIcon != null;
+      final iconTypeChanged = (hadImageAsset != hasImageAsset) || (hadCustomIcon != hasCustomIcon);
+      
       // Handle imageAsset (takes precedence over SF Symbol)
       if (widget.imageAsset != null) {
+        // Update if path/data changed OR if we switched from another icon type
+        if (imageAssetPathChanged || imageAssetDataChanged || iconTypeChanged) {
         // Resolve asset path based on device pixel ratio
         final resolvedAssetPath = await resolveAssetPathForPixelRatio(widget.imageAsset!.assetPath);
         updates['buttonAssetPath'] = resolvedAssetPath;
@@ -610,29 +623,85 @@ class _CNButtonState extends State<CNButton> {
         if (widget.imageAsset!.gradient != null) {
           updates['buttonIconGradientEnabled'] = widget.imageAsset!.gradient;
         }
+          // Update tracking variables
+          _lastImageAssetPath = widget.imageAsset!.assetPath;
+          _lastImageAssetData = widget.imageAsset!.imageData;
+          _lastCustomIcon = null; // Clear custom icon tracking
       } else {
-        // Fallback to SF Symbol or custom icon
-        // Always include the icon source to prevent disappearing icons when only style changes
+          // Even if path didn't change, check if other imageAsset properties changed
+          final sizeChanged = _lastIconSize != widget.imageAsset!.size;
+          final colorChanged = _lastIconColor != resolveColorToArgb(widget.imageAsset!.color, context);
+          
+          if (sizeChanged || colorChanged) {
+            updates['buttonIconSize'] = widget.imageAsset!.size;
+            if (widget.imageAsset!.color != null) {
+              updates['buttonIconColor'] = resolveColorToArgb(widget.imageAsset!.color, context);
+            }
+            if (widget.imageAsset!.mode != null) {
+              updates['buttonIconRenderingMode'] = widget.imageAsset!.mode!.name;
+            }
+            if (widget.imageAsset!.gradient != null) {
+              updates['buttonIconGradientEnabled'] = widget.imageAsset!.gradient;
+            }
+            // Always include asset path when updating other properties
+            final resolvedAssetPath = await resolveAssetPathForPixelRatio(widget.imageAsset!.assetPath);
+            updates['buttonAssetPath'] = resolvedAssetPath;
+            updates['buttonImageData'] = widget.imageAsset!.imageData;
+            updates['buttonImageFormat'] = widget.imageAsset!.imageFormat ?? 
+                detectImageFormat(resolvedAssetPath, widget.imageAsset!.imageData);
+          }
+        }
+      } else if (widget.customIcon != null) {
+        // Handle custom icon - update if changed OR if we switched from another icon type
+        if (customIconChanged || iconTypeChanged) {
+          // Handle custom icon change - need to render it first
+          final customIconBytes = await iconDataToImageBytes(
+            widget.customIcon!,
+            size: widget.icon?.size ?? 20.0,
+          );
+          if (customIconBytes != null) {
+            updates['buttonCustomIconBytes'] = customIconBytes;
+            updates['buttonIconSize'] = widget.icon?.size ?? 20.0;
+            if (widget.icon?.color != null) {
+              updates['buttonIconColor'] = resolveColorToArgb(widget.icon!.color, context);
+            }
+            if (widget.icon?.mode != null) {
+              updates['buttonIconRenderingMode'] = widget.icon!.mode!.name;
+            }
+            if (widget.icon?.paletteColors != null) {
+              updates['buttonIconPaletteColors'] = widget.icon!.paletteColors!
+                  .map((c) => resolveColorToArgb(c, context))
+                  .toList();
+            }
+            if (widget.icon?.gradient != null) {
+              updates['buttonIconGradientEnabled'] = widget.icon!.gradient;
+            }
+            _lastCustomIcon = widget.customIcon;
+            _lastImageAssetPath = null; // Clear imageAsset tracking
+            _lastImageAssetData = null;
+          }
+        }
+      } else {
+        // Fallback to SF Symbol
+        // Check if any SF Symbol properties changed OR if we switched from another icon type
         bool hasChanges = false;
 
-        if (_lastIconName != iconName) {
+        if (_lastIconName != iconName && iconName != null) {
           hasChanges = true;
           _lastIconName = iconName;
         }
-        if (_lastIconSize != iconSize) {
+        if (_lastIconSize != iconSize && iconSize != null) {
           hasChanges = true;
           _lastIconSize = iconSize;
         }
-        if (_lastIconColor != iconColor) {
+        if (_lastIconColor != iconColor && iconColor != null) {
           hasChanges = true;
           _lastIconColor = iconColor;
         }
 
-        // If any property changed, include the icon source to ensure native side can rebuild properly
-        if (hasChanges || updates.isEmpty) {
-          if (iconName != null) {
+        // If any property changed OR icon type changed, include the icon source
+        if ((hasChanges || iconTypeChanged) && iconName != null) {
             updates['buttonIconName'] = iconName;
-          }
           if (iconSize != null) {
             updates['buttonIconSize'] = iconSize;
           }
@@ -649,6 +718,12 @@ class _CNButtonState extends State<CNButton> {
           }
           if (widget.icon?.gradient != null) {
             updates['buttonIconGradientEnabled'] = widget.icon!.gradient;
+          }
+          // Clear imageAsset and customIcon tracking when using SF Symbol
+          if (iconTypeChanged) {
+            _lastImageAssetPath = null;
+            _lastImageAssetData = null;
+            _lastCustomIcon = null;
           }
         }
       }
