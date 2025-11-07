@@ -81,7 +81,7 @@ class _LiquidGlassContainerState extends State<LiquidGlassContainer> {
       if (widget.config.tint != null)
         'tint': resolveColorToArgb(widget.config.tint!, context),
       'interactive': widget.config.interactive,
-      'isDark': _isDark,
+      'isDark': ThemeHelper.isDark(context),
     };
 
     final platformView = defaultTargetPlatform == TargetPlatform.iOS

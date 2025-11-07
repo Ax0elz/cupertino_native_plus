@@ -1,3 +1,23 @@
+## 0.0.5
+
+* **Performance Improvements**: Added method channel updates for button groups to prevent full rebuilds and eliminate freezes when updating button parameters
+* **Preserved Animations**: Button groups now update smoothly without losing native animations when button properties change (icon, color, image asset, etc.)
+* **Efficient Updates**: Implemented granular updates for individual buttons in groups, only updating changed buttons instead of rebuilding the entire group
+* **Reactive SwiftUI Updates**: Converted button group SwiftUI views to use ObservableObject pattern for efficient reactive updates
+* **Button Parameter Updates**: Individual buttons in groups can now be updated dynamically via method channels without full view rebuilds
+
+## 0.0.4
+
+* **PNG Image Support**: Added full support for PNG images in all components (buttons, icons, popup menus, tab bars, glass button groups)
+* **Automatic Asset Resolution**: Implemented automatic asset resolution based on device pixel ratio, similar to Flutter's automatic asset selection. The system now automatically selects the appropriate resolution-specific asset (e.g., `assets/icons/3.0x/checkcircle.png` for @3x devices) or falls back to the closest bigger size
+* **ImageUtils Consolidation**: Consolidated all image loading, format detection, scaling, and tinting logic into a shared `ImageUtils.swift` class for better code maintainability and consistency
+* **Fixed PNG Rendering**: Fixed PNG image rendering issues in buttons and glass button groups
+* **Fixed Image Orientation**: Fixed image flipping issues for both PNG and SVG images when colors are applied
+* **Made buttonIcon Optional**: Made `buttonIcon` parameter optional in `CNPopupMenuButton.icon` constructor, allowing developers to use only `buttonImageAsset` or `buttonCustomIcon`
+* **Improved Glass Effect Appearance**: Fixed glass effect appearance synchronization with Flutter's theme mode to prevent dark-to-light transitions on initial render
+* **Enhanced Image Format Detection**: Improved automatic image format detection from file extensions and magic bytes
+* **Better Fallback Handling**: Improved fallback behavior when asset paths fail to load, ensuring images still render from provided image bytes
+
 ## 0.0.3
 
 * Updated README to showcase all icon types (SVG assets, custom icons, and SF Symbols)

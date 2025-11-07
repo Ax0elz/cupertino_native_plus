@@ -62,6 +62,11 @@ class LiquidGlassContainerPlatformView: NSObject, FlutterPlatformView {
     
     super.init()
     
+    // Sync Flutter's brightness mode with Swift at initialization
+    if #available(iOS 13.0, *) {
+      self.hostingController.overrideUserInterfaceStyle = isDark ? .dark : .light
+    }
+    
     // Add hosting controller as child
     container.addSubview(hostingController.view)
     hostingController.view.translatesAutoresizingMaskIntoConstraints = false

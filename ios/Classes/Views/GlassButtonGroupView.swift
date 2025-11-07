@@ -3,18 +3,32 @@ import UIKit
 import Flutter
 
 @available(iOS 26.0, *)
+class GlassButtonGroupViewModel: ObservableObject {
+  @Published var buttons: [GlassButtonData] = []
+  @Published var axis: Axis = .horizontal
+  @Published var spacing: CGFloat = 8.0
+  @Published var spacingForGlass: CGFloat = 40.0
+  
+  func updateButton(at index: Int, with buttonData: GlassButtonData) {
+    guard index >= 0 && index < buttons.count else { return }
+    buttons[index] = buttonData
+  }
+  
+  func updateButtons(_ newButtons: [GlassButtonData]) {
+    buttons = newButtons
+  }
+}
+
+@available(iOS 26.0, *)
 struct GlassButtonGroupSwiftUI: View {
-  let buttons: [GlassButtonData]
-  let axis: Axis
-  let spacing: CGFloat
-  let spacingForGlass: CGFloat
+  @ObservedObject var viewModel: GlassButtonGroupViewModel
   @Namespace private var namespace
   
   var body: some View {
-    GlassEffectContainer(spacing: spacingForGlass) {
-      if axis == .horizontal {
-        HStack(alignment: .center, spacing: spacing) {
-          ForEach(Array(buttons.enumerated()), id: \.offset) { index, button in
+    GlassEffectContainer(spacing: viewModel.spacingForGlass) {
+      if viewModel.axis == .horizontal {
+        HStack(alignment: .center, spacing: viewModel.spacing) {
+          ForEach(Array(viewModel.buttons.enumerated()), id: \.offset) { index, button in
             GlassButtonSwiftUI(
               title: button.title,
               iconName: button.iconName,
@@ -36,8 +50,8 @@ struct GlassButtonGroupSwiftUI: View {
         }
         .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity, alignment: .center)
       } else {
-        VStack(alignment: .center, spacing: spacing) {
-          ForEach(Array(buttons.enumerated()), id: \.offset) { index, button in
+        VStack(alignment: .center, spacing: viewModel.spacing) {
+          ForEach(Array(viewModel.buttons.enumerated()), id: \.offset) { index, button in
             GlassButtonSwiftUI(
               title: button.title,
               iconName: button.iconName,
@@ -89,6 +103,8 @@ class GlassButtonGroupPlatformView: NSObject, FlutterPlatformView {
   private let container: UIView
   private let hostingController: UIHostingController<GlassButtonGroupSwiftUI>
   private var buttonCallbacks: [Int: (() -> Void)] = [:]
+  private let viewModel: GlassButtonGroupViewModel
+  private let channel: FlutterMethodChannel
   
   init(frame: CGRect, viewId: Int64, args: Any?, messenger: FlutterBinaryMessenger) {
     // Initialize container with frame provided by Flutter
@@ -111,17 +127,27 @@ class GlassButtonGroupPlatformView: NSObject, FlutterPlatformView {
     var axis: Axis = .horizontal
     var spacing: CGFloat = 8.0
     var spacingForGlass: CGFloat = 40.0
+    var isDark: Bool = false
     
-    // Set up method channel for button callbacks
+    // Set up method channel for button callbacks and updates
     let channel = FlutterMethodChannel(name: "CupertinoNativeGlassButtonGroup_\(viewId)", binaryMessenger: messenger)
+    self.channel = channel
+    
+    // Create view model
+    let viewModel = GlassButtonGroupViewModel()
+    self.viewModel = viewModel
     
     if let dict = args as? [String: Any] {
+      if let isDarkBool = dict["isDark"] as? Bool {
+        isDark = isDarkBool
+      }
       if let buttonsData = dict["buttons"] as? [[String: Any]] {
         for (index, buttonDict) in buttonsData.enumerated() {
           let title = buttonDict["label"] as? String
           let iconName = buttonDict["iconName"] as? String
           let iconSize = (buttonDict["iconSize"] as? NSNumber).map { CGFloat(truncating: $0) } ?? 20.0
-          let iconColor = (buttonDict["iconColor"] as? NSNumber).map { Color(uiColor: Self.colorFromARGB($0.intValue)) }
+          let iconColorARGB = (buttonDict["iconColor"] as? NSNumber)?.intValue
+          let iconColor = iconColorARGB.map { Color(uiColor: Self.colorFromARGB($0)) }
           let tint = (buttonDict["tint"] as? NSNumber).map { Color(uiColor: Self.colorFromARGB($0.intValue)) }
           let isEnabled = (buttonDict["enabled"] as? NSNumber)?.boolValue ?? true
           let style = buttonDict["style"] as? String ?? "glass"
@@ -129,12 +155,57 @@ class GlassButtonGroupPlatformView: NSObject, FlutterPlatformView {
           let glassEffectId = buttonDict["glassEffectId"] as? String
           let glassEffectInteractive = (buttonDict["glassEffectInteractive"] as? NSNumber)?.boolValue ?? false
           
-          // Load image from bytes if provided
+          // Load image from asset path, bytes, or icon bytes
           var iconImage: UIImage? = nil
-          if let iconBytes = buttonDict["iconBytes"] as? FlutterStandardTypedData {
-            iconImage = UIImage(data: iconBytes.data)
-          } else if let imageBytes = buttonDict["imageBytes"] as? FlutterStandardTypedData {
-            iconImage = UIImage(data: imageBytes.data)
+          
+          // Try asset path first
+          if let assetPath = buttonDict["assetPath"] as? String, !assetPath.isEmpty {
+            let format = buttonDict["imageFormat"] as? String
+            let size = CGSize(width: iconSize, height: iconSize)
+            
+            // Use utility function to load and optionally tint image
+            if let argb = iconColorARGB, #available(iOS 13.0, *) {
+              iconImage = ImageUtils.loadAndTintImage(
+                from: assetPath,
+                iconSize: iconSize,
+                iconColor: argb,
+                providedFormat: format,
+                scale: UIScreen.main.scale
+              )
+            } else {
+              iconImage = ImageUtils.loadFlutterAsset(assetPath, size: size, format: format, scale: UIScreen.main.scale)
+            }
+            
+            // If no color but size is specified, scale the image
+            if iconImage != nil, iconColorARGB == nil, iconImage!.size != size {
+              iconImage = ImageUtils.scaleImage(iconImage!, to: size, scale: UIScreen.main.scale)
+            }
+          }
+          
+          // Fallback to imageBytes if assetPath failed or wasn't provided
+          if iconImage == nil, let imageBytes = buttonDict["imageBytes"] as? FlutterStandardTypedData {
+            let format = buttonDict["imageFormat"] as? String
+            let size = CGSize(width: iconSize, height: iconSize)
+            
+            // Use utility function to create and optionally tint image
+            if let argb = iconColorARGB, #available(iOS 13.0, *) {
+              iconImage = ImageUtils.createAndTintImage(
+                from: imageBytes.data,
+                iconSize: iconSize,
+                iconColor: argb,
+                providedFormat: format,
+                scale: UIScreen.main.scale
+              )
+            } else {
+              iconImage = ImageUtils.createImageFromData(imageBytes.data, format: format, size: size, scale: UIScreen.main.scale)
+            }
+          }
+          
+          // Fallback to iconBytes if both assetPath and imageBytes failed
+          if iconImage == nil, let iconBytes = buttonDict["iconBytes"] as? FlutterStandardTypedData {
+            // iconBytes are typically PNG data from IconData rendering
+            let size = CGSize(width: iconSize, height: iconSize)
+            iconImage = ImageUtils.createImageFromData(iconBytes.data, format: "png", size: size, scale: UIScreen.main.scale)
           }
           
           // Create callback for this button
@@ -202,12 +273,13 @@ class GlassButtonGroupPlatformView: NSObject, FlutterPlatformView {
       }
     }
     
-    let swiftUIView = GlassButtonGroupSwiftUI(
-      buttons: buttons,
-      axis: axis,
-      spacing: spacing,
-      spacingForGlass: spacingForGlass
-    )
+    // Update view model with initial values
+    viewModel.buttons = buttons
+    viewModel.axis = axis
+    viewModel.spacing = spacing
+    viewModel.spacingForGlass = spacingForGlass
+    
+    let swiftUIView = GlassButtonGroupSwiftUI(viewModel: viewModel)
     
     self.hostingController = UIHostingController(rootView: swiftUIView)
     self.hostingController.view.backgroundColor = .clear
@@ -221,6 +293,11 @@ class GlassButtonGroupPlatformView: NSObject, FlutterPlatformView {
     }
     
     super.init()
+    
+    // Sync Flutter's brightness mode with Swift at initialization
+    if #available(iOS 13.0, *) {
+      self.hostingController.overrideUserInterfaceStyle = isDark ? .dark : .light
+    }
     
     hostingController.view.translatesAutoresizingMaskIntoConstraints = false
     container.addSubview(hostingController.view)
@@ -237,26 +314,264 @@ class GlassButtonGroupPlatformView: NSObject, FlutterPlatformView {
     container.addObserver(self, forKeyPath: "frame", options: [.new, .old], context: nil)
     container.addObserver(self, forKeyPath: "bounds", options: [.new, .old], context: nil)
     
-    // Force layout update for proper first-time rendering
-    // Similar to TabBar fix - ensures SwiftUI view is properly laid out before display
-    DispatchQueue.main.async { [weak self] in
-      guard let self = self else { return }
-      self.container.setNeedsLayout()
-      self.container.layoutIfNeeded()
-      self.hostingController.view.setNeedsLayout()
-      self.hostingController.view.layoutIfNeeded()
+    // Set up method channel handler for updates
+    channel.setMethodCallHandler { [weak self] call, result in
+      guard let self = self else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
       
-      // Force another update cycle for proper rendering
-      DispatchQueue.main.async { [weak self] in
-        guard let self = self else { return }
-        self.hostingController.view.setNeedsDisplay()
-        self.hostingController.view.setNeedsLayout()
-        self.hostingController.view.layoutIfNeeded()
+      switch call.method {
+      case "buttonPressed":
+        // This is handled by button callbacks, but we can also handle it here if needed
+        result(nil)
+      case "updateButton":
+        if let args = call.arguments as? [String: Any],
+           let index = args["index"] as? Int,
+           let buttonDict = args["button"] as? [String: Any] {
+          self.updateButton(at: index, with: buttonDict)
+          result(nil)
+        } else {
+          result(FlutterError(code: "bad_args", message: "Missing index or button", details: nil))
+        }
+      case "updateButtons":
+        if let args = call.arguments as? [String: Any],
+           let buttonsData = args["buttons"] as? [[String: Any]] {
+          self.updateButtons(buttonsData)
+          result(nil)
+        } else {
+          result(FlutterError(code: "bad_args", message: "Missing buttons", details: nil))
+        }
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+  
+  private func updateButton(at index: Int, with buttonDict: [String: Any]) {
+    guard index >= 0 && index < viewModel.buttons.count else { return }
+    
+    let title = buttonDict["label"] as? String
+    let iconName = buttonDict["iconName"] as? String
+    let iconSize = (buttonDict["iconSize"] as? NSNumber).map { CGFloat(truncating: $0) } ?? 20.0
+    let iconColorARGB = (buttonDict["iconColor"] as? NSNumber)?.intValue
+    let iconColor = iconColorARGB.map { Color(uiColor: Self.colorFromARGB($0)) }
+    let tint = (buttonDict["tint"] as? NSNumber).map { Color(uiColor: Self.colorFromARGB($0.intValue)) }
+    let isEnabled = (buttonDict["enabled"] as? NSNumber)?.boolValue ?? true
+    let style = buttonDict["style"] as? String ?? "glass"
+    let glassEffectUnionId = buttonDict["glassEffectUnionId"] as? String
+    let glassEffectId = buttonDict["glassEffectId"] as? String
+    let glassEffectInteractive = (buttonDict["glassEffectInteractive"] as? NSNumber)?.boolValue ?? false
+    
+    // Load image from asset path, bytes, or icon bytes
+    var iconImage: UIImage? = nil
+    
+    // Try asset path first
+    if let assetPath = buttonDict["assetPath"] as? String, !assetPath.isEmpty {
+      let format = buttonDict["imageFormat"] as? String
+      let size = CGSize(width: iconSize, height: iconSize)
+      
+      if let argb = iconColorARGB, #available(iOS 13.0, *) {
+        iconImage = ImageUtils.loadAndTintImage(
+          from: assetPath,
+          iconSize: iconSize,
+          iconColor: argb,
+          providedFormat: format,
+          scale: UIScreen.main.scale
+        )
+      } else {
+        iconImage = ImageUtils.loadFlutterAsset(assetPath, size: size, format: format, scale: UIScreen.main.scale)
+      }
+      
+      if iconImage != nil, iconColorARGB == nil, iconImage!.size != size {
+        iconImage = ImageUtils.scaleImage(iconImage!, to: size, scale: UIScreen.main.scale)
       }
     }
     
-    // Note: Method channel is set up for buttons to call Flutter via invokeMethod
-    // Flutter will listen to this channel in the Dart code
+    // Fallback to imageBytes
+    if iconImage == nil, let imageBytes = buttonDict["imageBytes"] as? FlutterStandardTypedData {
+      let format = buttonDict["imageFormat"] as? String
+      let size = CGSize(width: iconSize, height: iconSize)
+      
+      if let argb = iconColorARGB, #available(iOS 13.0, *) {
+        iconImage = ImageUtils.createAndTintImage(
+          from: imageBytes.data,
+          iconSize: iconSize,
+          iconColor: argb,
+          providedFormat: format,
+          scale: UIScreen.main.scale
+        )
+      } else {
+        iconImage = ImageUtils.createImageFromData(imageBytes.data, format: format, size: size, scale: UIScreen.main.scale)
+      }
+    }
+    
+    // Fallback to iconBytes
+    if iconImage == nil, let iconBytes = buttonDict["iconBytes"] as? FlutterStandardTypedData {
+      let size = CGSize(width: iconSize, height: iconSize)
+      iconImage = ImageUtils.createImageFromData(iconBytes.data, format: "png", size: size, scale: UIScreen.main.scale)
+    }
+    
+    let isRound = (title == nil && iconName != nil) || (title == nil && iconImage != nil)
+    
+    // Extract config parameters
+    let borderRadius = (buttonDict["borderRadius"] as? NSNumber).map { CGFloat(truncating: $0) }
+    let paddingTop = (buttonDict["paddingTop"] as? NSNumber).map { CGFloat(truncating: $0) }
+    let paddingBottom = (buttonDict["paddingBottom"] as? NSNumber).map { CGFloat(truncating: $0) }
+    let paddingLeft = (buttonDict["paddingLeft"] as? NSNumber).map { CGFloat(truncating: $0) }
+    let paddingRight = (buttonDict["paddingRight"] as? NSNumber).map { CGFloat(truncating: $0) }
+    let paddingHorizontal = (buttonDict["paddingHorizontal"] as? NSNumber).map { CGFloat(truncating: $0) }
+    let paddingVertical = (buttonDict["paddingVertical"] as? NSNumber).map { CGFloat(truncating: $0) }
+    let minHeight = (buttonDict["minHeight"] as? NSNumber).map { CGFloat(truncating: $0) }
+    let spacing = (buttonDict["imagePadding"] as? NSNumber).map { CGFloat(truncating: $0) }
+    
+    let config = GlassButtonConfig(
+      borderRadius: borderRadius,
+      top: paddingTop,
+      bottom: paddingBottom,
+      left: paddingLeft,
+      right: paddingRight,
+      horizontal: paddingHorizontal,
+      vertical: paddingVertical,
+      minHeight: minHeight ?? 44.0,
+      spacing: spacing ?? 8.0
+    )
+    
+    let buttonCallback = buttonCallbacks[index] ?? { [weak self] in
+      self?.channel.invokeMethod("buttonPressed", arguments: ["index": index], result: nil)
+    }
+    
+    let buttonData = GlassButtonData(
+      title: title,
+      iconName: iconName,
+      iconImage: iconImage,
+      iconSize: iconSize,
+      iconColor: iconColor,
+      tint: tint,
+      isRound: isRound,
+      style: style,
+      isEnabled: isEnabled,
+      onPressed: buttonCallback,
+      glassEffectUnionId: glassEffectUnionId,
+      glassEffectId: glassEffectId,
+      glassEffectInteractive: glassEffectInteractive,
+      config: config
+    )
+    
+    viewModel.updateButton(at: index, with: buttonData)
+  }
+  
+  private func updateButtons(_ buttonsData: [[String: Any]]) {
+    var newButtons: [GlassButtonData] = []
+    
+    for (index, buttonDict) in buttonsData.enumerated() {
+      let title = buttonDict["label"] as? String
+      let iconName = buttonDict["iconName"] as? String
+      let iconSize = (buttonDict["iconSize"] as? NSNumber).map { CGFloat(truncating: $0) } ?? 20.0
+      let iconColorARGB = (buttonDict["iconColor"] as? NSNumber)?.intValue
+      let iconColor = iconColorARGB.map { Color(uiColor: Self.colorFromARGB($0)) }
+      let tint = (buttonDict["tint"] as? NSNumber).map { Color(uiColor: Self.colorFromARGB($0.intValue)) }
+      let isEnabled = (buttonDict["enabled"] as? NSNumber)?.boolValue ?? true
+      let style = buttonDict["style"] as? String ?? "glass"
+      let glassEffectUnionId = buttonDict["glassEffectUnionId"] as? String
+      let glassEffectId = buttonDict["glassEffectId"] as? String
+      let glassEffectInteractive = (buttonDict["glassEffectInteractive"] as? NSNumber)?.boolValue ?? false
+      
+      var iconImage: UIImage? = nil
+      
+      if let assetPath = buttonDict["assetPath"] as? String, !assetPath.isEmpty {
+        let format = buttonDict["imageFormat"] as? String
+        let size = CGSize(width: iconSize, height: iconSize)
+        
+        if let argb = iconColorARGB, #available(iOS 13.0, *) {
+          iconImage = ImageUtils.loadAndTintImage(
+            from: assetPath,
+            iconSize: iconSize,
+            iconColor: argb,
+            providedFormat: format,
+            scale: UIScreen.main.scale
+          )
+        } else {
+          iconImage = ImageUtils.loadFlutterAsset(assetPath, size: size, format: format, scale: UIScreen.main.scale)
+        }
+        
+        if iconImage != nil, iconColorARGB == nil, iconImage!.size != size {
+          iconImage = ImageUtils.scaleImage(iconImage!, to: size, scale: UIScreen.main.scale)
+        }
+      }
+      
+      if iconImage == nil, let imageBytes = buttonDict["imageBytes"] as? FlutterStandardTypedData {
+        let format = buttonDict["imageFormat"] as? String
+        let size = CGSize(width: iconSize, height: iconSize)
+        
+        if let argb = iconColorARGB, #available(iOS 13.0, *) {
+          iconImage = ImageUtils.createAndTintImage(
+            from: imageBytes.data,
+            iconSize: iconSize,
+            iconColor: argb,
+            providedFormat: format,
+            scale: UIScreen.main.scale
+          )
+        } else {
+          iconImage = ImageUtils.createImageFromData(imageBytes.data, format: format, size: size, scale: UIScreen.main.scale)
+        }
+      }
+      
+      if iconImage == nil, let iconBytes = buttonDict["iconBytes"] as? FlutterStandardTypedData {
+        let size = CGSize(width: iconSize, height: iconSize)
+        iconImage = ImageUtils.createImageFromData(iconBytes.data, format: "png", size: size, scale: UIScreen.main.scale)
+      }
+      
+      let buttonIndex = index
+      let buttonCallback: () -> Void = {
+        self.channel.invokeMethod("buttonPressed", arguments: ["index": buttonIndex], result: nil)
+      }
+      buttonCallbacks[buttonIndex] = buttonCallback
+      
+      let isRound = (title == nil && iconName != nil) || (title == nil && iconImage != nil)
+      
+      let borderRadius = (buttonDict["borderRadius"] as? NSNumber).map { CGFloat(truncating: $0) }
+      let paddingTop = (buttonDict["paddingTop"] as? NSNumber).map { CGFloat(truncating: $0) }
+      let paddingBottom = (buttonDict["paddingBottom"] as? NSNumber).map { CGFloat(truncating: $0) }
+      let paddingLeft = (buttonDict["paddingLeft"] as? NSNumber).map { CGFloat(truncating: $0) }
+      let paddingRight = (buttonDict["paddingRight"] as? NSNumber).map { CGFloat(truncating: $0) }
+      let paddingHorizontal = (buttonDict["paddingHorizontal"] as? NSNumber).map { CGFloat(truncating: $0) }
+      let paddingVertical = (buttonDict["paddingVertical"] as? NSNumber).map { CGFloat(truncating: $0) }
+      let minHeight = (buttonDict["minHeight"] as? NSNumber).map { CGFloat(truncating: $0) }
+      let spacing = (buttonDict["imagePadding"] as? NSNumber).map { CGFloat(truncating: $0) }
+      
+      let config = GlassButtonConfig(
+        borderRadius: borderRadius,
+        top: paddingTop,
+        bottom: paddingBottom,
+        left: paddingLeft,
+        right: paddingRight,
+        horizontal: paddingHorizontal,
+        vertical: paddingVertical,
+        minHeight: minHeight ?? 44.0,
+        spacing: spacing ?? 8.0
+      )
+      
+      let buttonData = GlassButtonData(
+        title: title,
+        iconName: iconName,
+        iconImage: iconImage,
+        iconSize: iconSize,
+        iconColor: iconColor,
+        tint: tint,
+        isRound: isRound,
+        style: style,
+        isEnabled: isEnabled,
+        onPressed: buttonCallback,
+        glassEffectUnionId: glassEffectUnionId,
+        glassEffectId: glassEffectId,
+        glassEffectInteractive: glassEffectInteractive,
+        config: config
+      )
+      newButtons.append(buttonData)
+    }
+    
+    viewModel.updateButtons(newButtons)
   }
   
   func view() -> UIView {
@@ -294,12 +609,9 @@ class GlassButtonGroupPlatformView: NSObject, FlutterPlatformView {
     container.removeObserver(self, forKeyPath: "bounds")
   }
   
+  // Use shared utility functions
   private static func colorFromARGB(_ argb: Int) -> UIColor {
-    let a = CGFloat((argb >> 24) & 0xFF) / 255.0
-    let r = CGFloat((argb >> 16) & 0xFF) / 255.0
-    let g = CGFloat((argb >> 8) & 0xFF) / 255.0
-    let b = CGFloat(argb & 0xFF) / 255.0
-    return UIColor(red: r, green: g, blue: b, alpha: a)
+    return ImageUtils.colorFromARGB(argb)
   }
 }
 
