@@ -1,11 +1,12 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
-import '../utils/version_detector.dart';
+
+import '../channel/params.dart';
 import '../utils/icon_renderer.dart';
 import '../utils/theme_helper.dart';
-import '../channel/params.dart';
+import '../utils/version_detector.dart';
 import 'button.dart';
 
 /// A group of buttons that can be rendered together for proper Liquid Glass blending effects.
@@ -55,6 +56,15 @@ class _CNGlassButtonGroupState extends State<CNGlassButtonGroup> {
   Axis? _lastAxis;
   double? _lastSpacing;
   double? _lastSpacingForGlass;
+  bool? _lastIsDark;
+
+  bool get _isDark => ThemeHelper.isDark(context);
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncBrightnessIfNeeded();
+  }
 
   @override
   void didUpdateWidget(covariant CNGlassButtonGroup oldWidget) {
@@ -189,6 +199,7 @@ class _CNGlassButtonGroupState extends State<CNGlassButtonGroup> {
     _lastAxis = widget.axis;
     _lastSpacing = widget.spacing;
     _lastSpacingForGlass = widget.spacingForGlass;
+    _lastIsDark = _isDark;
   }
 
   Future<void> _syncButtonsToNativeIfNeeded() async {
@@ -258,6 +269,21 @@ class _CNGlassButtonGroupState extends State<CNGlassButtonGroup> {
       if (!a[i].equals(b[i])) return false;
     }
     return true;
+  }
+
+  Future<void> _syncBrightnessIfNeeded() async {
+    final channel = _channel;
+    if (channel == null) return;
+
+    final isDark = _isDark;
+    if (_lastIsDark != isDark) {
+      _lastIsDark = isDark;
+      try {
+        await channel.invokeMethod('updateBrightness', {'isDark': isDark});
+      } catch (e) {
+        // Ignore errors - view might not be ready yet
+      }
+    }
   }
 
   Widget _buildFlutterFallback(BuildContext context) {
@@ -459,15 +485,15 @@ class _ButtonSnapshot {
       label: button.label,
       iconName: button.icon?.name,
       iconSize: button.icon?.size,
-      iconColor: button.icon?.color?.value,
+      iconColor: button.icon?.color?.toARGB32(),
       imageAssetPath: button.imageAsset?.assetPath,
       imageAssetDataLength: button.imageAsset?.imageData?.length,
       imageAssetSize: button.imageAsset?.size,
-      imageAssetColor: button.imageAsset?.color?.value,
+      imageAssetColor: button.imageAsset?.color?.toARGB32(),
       customIconHash: button.customIcon?.hashCode,
       style: button.config.style.name,
       enabled: button.enabled,
-      tint: button.tint?.value,
+      tint: button.tint?.toARGB32(),
     );
   }
 

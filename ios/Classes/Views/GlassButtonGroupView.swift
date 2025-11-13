@@ -342,6 +342,16 @@ class GlassButtonGroupPlatformView: NSObject, FlutterPlatformView {
         } else {
           result(FlutterError(code: "bad_args", message: "Missing buttons", details: nil))
         }
+      case "updateBrightness":
+        if let args = call.arguments as? [String: Any],
+           let isDark = args["isDark"] as? Bool {
+          if #available(iOS 13.0, *) {
+            self.hostingController.overrideUserInterfaceStyle = isDark ? .dark : .light
+          }
+          result(nil)
+        } else {
+          result(FlutterError(code: "bad_args", message: "Missing isDark", details: nil))
+        }
       default:
         result(FlutterMethodNotImplemented)
       }
